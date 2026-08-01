@@ -1,1 +1,3 @@
+fastapi==0.141.1
 numpy
+uvicorn[standard]==0.52.1

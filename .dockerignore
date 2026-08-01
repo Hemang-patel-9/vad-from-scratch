@@ -1,0 +1,16 @@
+.git
+.gitignore
+docs
+samples
+LICENSE
+README.md
+
+frontend/node_modules
+frontend/.next
+frontend/out
+frontend/README.md
+
+**/__pycache__
+**/*.pyc
+.venv
+venv

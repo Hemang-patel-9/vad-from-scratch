@@ -1,65 +1,213 @@
-import Image from "next/image";
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { MotionConfig, motion, type Variants } from "framer-motion";
+import {
+  CircleAlert,
+  CircleCheck,
+  FileText,
+  RefreshCw,
+  ServerCog,
+  Waves,
+} from "lucide-react";
+
+type Health = { status: string; service: string; version: string };
+
+type Probe =
+  | { phase: "loading" }
+  | { phase: "ok"; data: Health; latency: number }
+  | { phase: "error"; message: string };
+
+const DOCS = [
+  { name: "Rule-based", path: "docs/rule-based.md" },
+  { name: "DL-based", path: "docs/dl-based.md" },
+];
+
+const container: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.07, delayChildren: 0.04 } },
+};
+
+const item: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
+};
 
 export default function Home() {
+  const [probe, setProbe] = useState<Probe>({ phase: "loading" });
+
+  // State is only set after the await, so the mount effect stays render-safe.
+  const runProbe = useCallback(async () => {
+    const started = performance.now();
+    try {
+      const res = await fetch("/api/health", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: Health = await res.json();
+      setProbe({
+        phase: "ok",
+        data,
+        latency: Math.round(performance.now() - started),
+      });
+    } catch (err) {
+      setProbe({
+        phase: "error",
+        message: err instanceof Error ? err.message : "Unreachable",
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    // One-shot probe on mount. A static export has no server render, so the
+    // first fetch has to happen here; state settles after the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void runProbe();
+  }, [runProbe]);
+
+  const recheck = useCallback(() => {
+    setProbe({ phase: "loading" });
+    void runProbe();
+  }, [runProbe]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <MotionConfig reducedMotion="user">
+      <main className="flex flex-1 items-center justify-center px-6 py-16">
+        <motion.div
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="w-full max-w-xl"
+        >
+          <motion.div
+            variants={item}
+            className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.18em] text-muted"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <Waves className="size-3.5" aria-hidden />
+            VAD from scratch
+          </motion.div>
+
+          <motion.h1
+            variants={item}
+            className="mt-5 text-2xl font-semibold tracking-tight sm:text-3xl"
           >
-            Documentation
-          </a>
-        </div>
+            Voice activity detection, built from scratch.
+          </motion.h1>
+
+          <motion.p variants={item} className="mt-2 text-sm text-muted">
+            Next.js and FastAPI, served together on one port.
+          </motion.p>
+
+          <motion.section
+            variants={item}
+            aria-labelledby="backend-heading"
+            className="mt-10 rounded-lg border border-line bg-surface"
+          >
+            <header className="flex items-center justify-between border-b border-line px-4 py-3">
+              <h2
+                id="backend-heading"
+                className="flex items-center gap-2 text-sm font-medium"
+              >
+                <ServerCog className="size-4 text-muted" aria-hidden />
+                Backend
+              </h2>
+              <StatusPill probe={probe} />
+            </header>
+
+            <dl className="grid grid-cols-2 gap-px bg-line">
+              <Field label="Status" value={probe.phase === "ok" ? probe.data.status : "—"} />
+              <Field label="Service" value={probe.phase === "ok" ? probe.data.service : "—"} />
+              <Field label="Version" value={probe.phase === "ok" ? probe.data.version : "—"} />
+              <Field
+                label="Latency"
+                value={probe.phase === "ok" ? `${probe.latency} ms` : "—"}
+              />
+            </dl>
+
+            <footer className="flex items-center justify-between border-t border-line px-4 py-3">
+              <code className="font-mono text-xs text-muted">GET /api/health</code>
+              <button
+                type="button"
+                onClick={recheck}
+                disabled={probe.phase === "loading"}
+                className="flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 font-mono text-xs text-muted transition-colors hover:bg-background hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`size-3.5 ${probe.phase === "loading" ? "animate-spin" : ""}`}
+                  aria-hidden
+                />
+                Recheck
+              </button>
+            </footer>
+          </motion.section>
+
+          {probe.phase === "error" && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mt-3 font-mono text-xs text-down"
+            >
+              {probe.message} — is the backend running?
+            </motion.p>
+          )}
+
+          <motion.section variants={item} className="mt-10">
+            <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
+              Docs
+            </h2>
+            <ul className="mt-3 divide-y divide-line border-y border-line">
+              {DOCS.map((doc) => (
+                <li
+                  key={doc.path}
+                  className="flex items-center justify-between py-2.5 text-sm"
+                >
+                  <span className="flex items-center gap-2">
+                    <FileText className="size-3.5 text-muted" aria-hidden />
+                    {doc.name}
+                  </span>
+                  <code className="font-mono text-xs text-muted">{doc.path}</code>
+                </li>
+              ))}
+            </ul>
+          </motion.section>
+        </motion.div>
       </main>
+    </MotionConfig>
+  );
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-surface px-4 py-3">
+      <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+        {label}
+      </dt>
+      <dd className="mt-1 font-mono text-sm">{value}</dd>
     </div>
+  );
+}
+
+function StatusPill({ probe }: { probe: Probe }) {
+  if (probe.phase === "loading") {
+    return (
+      <span className="flex items-center gap-1.5 font-mono text-xs text-muted">
+        <span className="size-1.5 rounded-full bg-muted" />
+        Checking
+      </span>
+    );
+  }
+
+  if (probe.phase === "error") {
+    return (
+      <span className="flex items-center gap-1.5 font-mono text-xs text-down">
+        <CircleAlert className="size-3.5" aria-hidden />
+        Unreachable
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1.5 font-mono text-xs text-ok">
+      <CircleCheck className="size-3.5" aria-hidden />
+      Healthy
+    </span>
   );
 }
