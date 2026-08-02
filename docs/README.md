@@ -2,9 +2,23 @@
 
 Notes for the `backend/` implementations. One page per approach.
 
-| Page | Approach |
+## [Rule-based](rule-based/README.md)
+
+Hand-tuned signal processing. No training data, and every decision can be traced
+back to a specific frame and threshold.
+
+| Page | Status |
 | --- | --- |
-| [rule-based.md](rule-based.md) | Rule-based detection |
-| [dl-based.md](dl-based.md) | Deep-learning-based detection |
+| [energy-based.md](rule-based/energy-based.md) | Implemented |
+| `zero-crossing.md` | Planned |
+| `spectral.md` | Planned |
+
+## [DL-based](dl-based/README.md)
+
+A learned classifier over frame features.
+
+| Page | Status |
+| --- | --- |
+| `dl-based/README.md` | Planned |
 
 Each page follows the same outline: idea, method, parameters, evaluation, notes.

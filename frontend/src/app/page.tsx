@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { MotionConfig, motion, type Variants } from "framer-motion";
 import {
+  ArrowRight,
   CircleAlert,
   CircleCheck,
-  FileText,
   RefreshCw,
   ServerCog,
   Waves,
@@ -18,9 +19,35 @@ type Probe =
   | { phase: "ok"; data: Health; latency: number }
   | { phase: "error"; message: string };
 
-const DOCS = [
-  { name: "Rule-based", path: "docs/rule-based.md" },
-  { name: "DL-based", path: "docs/dl-based.md" },
+const APPROACHES = [
+  {
+    name: "Energy-based",
+    family: "Rule-based",
+    summary: "Frame energy against an adaptive noise floor, with hysteresis and hangover.",
+    href: "/energy-based",
+    docs: "docs/rule-based/energy-based.md",
+  },
+  {
+    name: "Zero-crossing rate",
+    family: "Rule-based",
+    summary: "Counts sign changes to separate voiced speech from fricatives and noise.",
+    href: null,
+    docs: "docs/rule-based/zero-crossing.md",
+  },
+  {
+    name: "Spectral",
+    family: "Rule-based",
+    summary: "Flatness and entropy of the spectrum rather than raw loudness.",
+    href: null,
+    docs: "docs/rule-based/spectral.md",
+  },
+  {
+    name: "Neural",
+    family: "DL-based",
+    summary: "A small trained classifier over frame features.",
+    href: null,
+    docs: "docs/dl-based/README.md",
+  },
 ];
 
 const container: Variants = {
@@ -70,12 +97,12 @@ export default function Home() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <main className="flex flex-1 items-center justify-center px-6 py-16">
+      <main className="flex flex-1 items-center justify-center px-4 py-12 sm:px-6 sm:py-16">
         <motion.div
           variants={container}
           initial="hidden"
           animate="show"
-          className="w-full max-w-xl"
+          className="w-full max-w-2xl"
         >
           <motion.div
             variants={item}
@@ -151,19 +178,46 @@ export default function Home() {
 
           <motion.section variants={item} className="mt-10">
             <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
-              Docs
+              Approaches
             </h2>
             <ul className="mt-3 divide-y divide-line border-y border-line">
-              {DOCS.map((doc) => (
-                <li
-                  key={doc.path}
-                  className="flex items-center justify-between py-2.5 text-sm"
-                >
-                  <span className="flex items-center gap-2">
-                    <FileText className="size-3.5 text-muted" aria-hidden />
-                    {doc.name}
-                  </span>
-                  <code className="font-mono text-xs text-muted">{doc.path}</code>
+              {APPROACHES.map((approach) => (
+                <li key={approach.name}>
+                  {approach.href ? (
+                    <Link
+                      href={approach.href}
+                      className="group flex items-center justify-between gap-4 py-3 transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+                    >
+                      <span>
+                        <span className="flex items-center gap-2 text-sm font-medium">
+                          {approach.name}
+                          <span className="rounded-sm border border-line px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+                            {approach.family}
+                          </span>
+                        </span>
+                        <span className="mt-1 block text-xs text-muted">{approach.summary}</span>
+                      </span>
+                      <ArrowRight
+                        className="size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-foreground"
+                        aria-hidden
+                      />
+                    </Link>
+                  ) : (
+                    <div className="flex items-center justify-between gap-4 py-3 opacity-55">
+                      <span>
+                        <span className="flex items-center gap-2 text-sm font-medium">
+                          {approach.name}
+                          <span className="rounded-sm border border-line px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+                            {approach.family}
+                          </span>
+                        </span>
+                        <span className="mt-1 block text-xs text-muted">{approach.summary}</span>
+                      </span>
+                      <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+                        Planned
+                      </span>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

@@ -8,6 +8,11 @@
   --line: #e4e4e7;
   --ok: #15803d;
   --down: #b91c1c;
+  --speech: #2563eb;
+  --speech-wash: rgba(37, 99, 235, 0.14);
+  --wave: #a1a1aa;
+  --energy: #f59e0b;
+  --grid: #ededf0;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -19,6 +24,11 @@
     --line: #26262a;
     --ok: #4ade80;
     --down: #f87171;
+    --speech: #60a5fa;
+    --speech-wash: rgba(96, 165, 250, 0.18);
+    --wave: #52525b;
+    --energy: #fbbf24;
+    --grid: #202024;
   }
 }
 
@@ -30,6 +40,9 @@
   --color-line: var(--line);
   --color-ok: var(--ok);
   --color-down: var(--down);
+  --color-speech: var(--speech);
+  --color-energy: var(--energy);
+  --color-grid: var(--grid);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
