@@ -3,7 +3,10 @@
 The simplest voice activity detector that works: speech is louder than the room
 it is spoken in, so measure loudness over short frames and threshold it.
 
-Implementation: [`backend/app/vad/energy.py`](../../backend/app/vad/energy.py).
+Implementation: [`backend/app/vad/energy.py`](../../backend/app/vad/energy.py), with
+everything downstream of the threshold in
+[`pipeline.py`](../../backend/app/vad/pipeline.py), shared with the other two
+rule-based detectors.
 Interactive version: `/energy-based` in the running app.
 
 ## Idea
@@ -196,15 +199,16 @@ On the bundled samples, at default settings:
 
 | Sample | Duration | Noise floor | Segments | Speech | Detector |
 | --- | --- | --- | --- | --- | --- |
-| `sample1.wav` | 18.4 s | −57.3 dB | 6 | 83% | 6.9 ms |
-| `sample2.wav` | 60.0 s | −47.9 dB | 13 | 92% | 16.3 ms |
-| `sample3.wav` | 24.0 s | −96.4 dB | 1 | 84% | 8.8 ms |
+| `sample1.wav` | 18.4 s | −57.2 dB | 6 | 83% | 4.8 ms |
+| `sample2.wav` | 60.0 s | −46.1 dB | 13 | 97% | 16.1 ms |
+| `sample3.wav` | 24.0 s | −77.6 dB | 1 | 84% | 5.7 ms |
 
-`sample2` is the clearest illustration. With a single global floor it returned
-**one** 60-second segment — the detector could not find a single pause. With the
-windowed floor it resolves **13**, because the floor now follows the recording
-instead of being set by its quietest moment. `sample3` still returns one: its
-gaps are true digital silence, so there is no drift to track.
+`sample2` is the only one where the windowed floor shows up at all. A single
+global floor is set by the quietest moment in the whole minute, sits 1.1 dB
+lower, and fragments the same speech into **18** segments; re-estimating per
+window follows the recording and resolves **13** longer ones. `sample1` and
+`sample3` come out identical either way — `sample3`'s gaps are true digital
+silence, so there is no drift to track.
 
 These are the numbers the UI reports, not a separate offline script.
 
@@ -231,7 +235,13 @@ backtracking — cannot be vectorised because each decision depends on the last,
 but converting to Python lists before looping avoids numpy's per-element boxing
 and is several times faster than indexing the arrays directly.
 
-The next approaches address the "loud but not speech" problem directly.
-Zero-crossing rate separates voiced speech from noise by how often the waveform
-changes sign; spectral measures ask whether energy is distributed like speech
-rather than merely present.
+The next two approaches address the "loud but not speech" problem directly.
+[Zero-crossing rate](zero-crossing.md) separates voiced speech from broadband
+noise by how often the waveform changes sign, and rejects a door slam that
+sails through this detector. [Spectral](spectral.md) measures ask whether energy
+is *arranged* like speech rather than merely present, and are the only approach
+here that still works at 5 dB SNR, where the recall of this one falls to 0.427.
+
+Neither of them replaces this page. Energy is still the best of the three on a
+clean recording and on trailing fricatives, and it costs a fraction of what they
+do — see [the comparison](README.md#how-they-compare).

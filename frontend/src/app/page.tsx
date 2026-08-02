@@ -30,15 +30,15 @@ const APPROACHES = [
   {
     name: "Zero-crossing rate",
     family: "Rule-based",
-    summary: "Counts sign changes to separate voiced speech from fricatives and noise.",
-    href: null,
+    summary: "Counts sign changes to separate voiced speech from broadband noise.",
+    href: "/zero-crossing",
     docs: "docs/rule-based/zero-crossing.md",
   },
   {
     name: "Spectral",
     family: "Rule-based",
     summary: "Flatness and entropy of the spectrum rather than raw loudness.",
-    href: null,
+    href: "/spectral",
     docs: "docs/rule-based/spectral.md",
   },
   {

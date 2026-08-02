@@ -5,22 +5,29 @@ import { CircleAlert, Mic, Square } from "lucide-react";
 
 import { AnimatedCanvas, useThemeTokens, type Painter } from "@/components/canvas";
 import { streamUrl } from "@/lib/api";
-import { decibelToY, type DecibelRange } from "@/lib/draw";
-import type { StreamUpdate, VadParameters } from "@/lib/types";
+import { GUIDE_DASH, valueToY, type PlotRange } from "@/lib/draw";
+import type { Detector } from "@/lib/detectors";
+import type { GuideLevel, Parameters, StreamUpdate } from "@/lib/types";
 
 const HISTORY_FRAMES = 1000;
-const WORKLET_URL = "/energy-vad-capture.js";
+const WORKLET_URL = "/vad-capture.js";
+const PROCESSOR_NAME = "vad-capture";
 
 type LiveFrame = {
-  energy: number;
+  value: number;
   speaking: boolean;
-  enter: number;
-  floor: number;
+  guides: GuideLevel[];
 };
 
 type Status = "idle" | "starting" | "running" | "error";
 
-export function LiveMicrophonePanel({ parameters }: { parameters: VadParameters }) {
+export function LiveMicrophonePanel({
+  detector,
+  parameters,
+}: {
+  detector: Detector;
+  parameters: Parameters;
+}) {
   const tokens = useThemeTokens();
   const historyRef = useRef<LiveFrame[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
@@ -31,7 +38,7 @@ export function LiveMicrophonePanel({ parameters }: { parameters: VadParameters 
   const [error, setError] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [utterances, setUtterances] = useState(0);
-  const [readout, setReadout] = useState({ floor: 0, enter: 0, level: 0 });
+  const [latest, setLatest] = useState<LiveFrame | null>(null);
 
   const teardown = useCallback(() => {
     socketRef.current?.close();
@@ -48,6 +55,7 @@ export function LiveMicrophonePanel({ parameters }: { parameters: VadParameters 
     setStatus("starting");
     setError(null);
     historyRef.current = [];
+    setLatest(null);
     setUtterances(0);
 
     try {
@@ -60,7 +68,7 @@ export function LiveMicrophonePanel({ parameters }: { parameters: VadParameters 
       contextRef.current = context;
       await context.audioWorklet.addModule(WORKLET_URL);
 
-      const socket = new WebSocket(streamUrl());
+      const socket = new WebSocket(streamUrl(detector.slug));
       socket.binaryType = "arraybuffer";
       socketRef.current = socket;
 
@@ -77,11 +85,10 @@ export function LiveMicrophonePanel({ parameters }: { parameters: VadParameters 
         if (message.type !== "update") return;
         const update = message as StreamUpdate;
 
-        const incoming = update.energy_db.map((energy, index) => ({
-          energy,
+        const incoming = update.measurements.map((value, index) => ({
+          value,
           speaking: update.flags[index] ?? false,
-          enter: update.enter_threshold_db,
-          floor: update.noise_floor_db,
+          guides: update.guides,
         }));
         const merged = historyRef.current.concat(incoming);
         historyRef.current = merged.slice(Math.max(0, merged.length - HISTORY_FRAMES));
@@ -90,14 +97,14 @@ export function LiveMicrophonePanel({ parameters }: { parameters: VadParameters 
         const last = incoming.at(-1);
         if (last) {
           setIsSpeaking(last.speaking);
-          setReadout({ floor: last.floor, enter: last.enter, level: last.energy });
+          setLatest(last);
         }
       });
 
       socket.addEventListener("close", () => setStatus("idle"));
 
       const source = context.createMediaStreamSource(media);
-      const capture = new AudioWorkletNode(context, "energy-vad-capture");
+      const capture = new AudioWorkletNode(context, PROCESSOR_NAME);
       capture.port.onmessage = (event: MessageEvent<Float32Array>) => {
         if (socket.readyState === WebSocket.OPEN) socket.send(event.data);
       };
@@ -115,7 +122,7 @@ export function LiveMicrophonePanel({ parameters }: { parameters: VadParameters 
       setError(cause instanceof Error ? cause.message : "Could not start the microphone");
       setStatus("error");
     }
-  }, [parameters, teardown]);
+  }, [detector.slug, parameters, teardown]);
 
   const stop = useCallback(() => {
     teardown();
@@ -130,7 +137,7 @@ export function LiveMicrophonePanel({ parameters }: { parameters: VadParameters 
     }
   }, [parameters, status]);
 
-  const range: DecibelRange = useMemo(() => ({ top: 0, bottom: -90 }), []);
+  const range: PlotRange = detector.live.range;
 
   const paint = useMemo<Painter>(
     () => (context, width, height) => {
@@ -159,12 +166,41 @@ export function LiveMicrophonePanel({ parameters }: { parameters: VadParameters 
         }
       }
 
-      drawTrace(context, frames, offset, columnWidth, range, height, (frame) => frame.energy, tokens["--energy"], 1.25, []);
-      drawTrace(context, frames, offset, columnWidth, range, height, (frame) => frame.enter, tokens["--speech"], 1, []);
-      drawTrace(context, frames, offset, columnWidth, range, height, (frame) => frame.floor, tokens["--muted"], 1, [2, 3]);
+      drawTrace(
+        context,
+        frames,
+        offset,
+        columnWidth,
+        range,
+        height,
+        (frame) => frame.value,
+        tokens["--energy"],
+        1.25,
+        [],
+      );
+
+      // Each frame carries the thresholds that were in force when it was
+      // decided, so the guides move with the detector rather than being redrawn
+      // flat at whatever the latest value happens to be.
+      for (const guide of frames.at(-1)?.guides ?? []) {
+        drawTrace(
+          context,
+          frames,
+          offset,
+          columnWidth,
+          range,
+          height,
+          (frame) => frame.guides.find((entry) => entry.key === guide.key)?.value ?? guide.value,
+          guide.emphasis === "primary" ? tokens["--speech"] : tokens["--muted"],
+          guide.style === "solid" ? 1.25 : 1,
+          GUIDE_DASH[guide.style],
+        );
+      }
     },
     [tokens, range],
   );
+
+  const format = (value: number) => value.toFixed(detector.live.decimals);
 
   return (
     <div className="space-y-4">
@@ -214,25 +250,31 @@ export function LiveMicrophonePanel({ parameters }: { parameters: VadParameters 
       <div className="rounded-lg border border-line bg-surface p-3">
         <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3">
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-            Live energy · last 10 s
+            {detector.live.title} · last 10 s
           </span>
-          <span className="text-[10px] text-muted">
-            solid = enter threshold · dotted = adapting noise floor
-          </span>
+          <span className="text-[10px] text-muted">{detector.live.legend}</span>
         </div>
         <AnimatedCanvas
           paint={paint}
           active={status === "running"}
-          label="Live microphone energy"
+          label={`${detector.live.title} from the microphone`}
           className="h-40 w-full"
         />
       </div>
 
-      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-5">
         <Readout label="Utterances" value={`${utterances}`} />
-        <Readout label="Level" value={status === "running" ? `${readout.level.toFixed(1)} dB` : "—"} />
-        <Readout label="Noise floor" value={status === "running" ? `${readout.floor.toFixed(1)} dB` : "—"} />
-        <Readout label="Enter at" value={status === "running" ? `${readout.enter.toFixed(1)} dB` : "—"} />
+        <Readout
+          label="Level"
+          value={status === "running" && latest ? format(latest.value) : "—"}
+        />
+        {(latest?.guides ?? []).map((guide) => (
+          <Readout
+            key={guide.key}
+            label={guide.label}
+            value={status === "running" ? format(guide.value) : "—"}
+          />
+        ))}
       </dl>
     </div>
   );
@@ -243,7 +285,7 @@ function drawTrace(
   frames: LiveFrame[],
   offset: number,
   columnWidth: number,
-  range: DecibelRange,
+  range: PlotRange,
   height: number,
   pick: (frame: LiveFrame) => number,
   color: string,
@@ -255,7 +297,7 @@ function drawTrace(
   context.beginPath();
   for (let index = 0; index < frames.length; index += 1) {
     const x = (offset + index) * columnWidth;
-    const y = decibelToY(pick(frames[index]), range, height);
+    const y = valueToY(pick(frames[index]), range, height);
     if (index === 0) context.moveTo(x, y);
     else context.lineTo(x, y);
   }

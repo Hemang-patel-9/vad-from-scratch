@@ -4,24 +4,25 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { CircleAlert, Loader2, Pause, Play } from "lucide-react";
 
-import { PaintedCanvas, renderOnto, useThemeTokens, type Painter } from "@/components/canvas";
+import { PaintedCanvas, renderOnto, useThemeTokens, type ThemeTokens, type Painter } from "@/components/canvas";
 import { analyseSample, sampleAudioUrl } from "@/lib/api";
 import {
-  drawDecibelGrid,
-  drawEnergyCurve,
+  GUIDE_DASH,
+  drawMeasurementCurve,
   drawPlayhead,
   drawSampledCurve,
   drawTimeAxis,
+  drawValueGrid,
   drawWaveform,
   fillSegments,
   plotGutter,
-  type DecibelRange,
 } from "@/lib/draw";
 import type {
-  EnergyVadAnalysis,
+  MeasurementTrace,
+  Parameters,
   SampleSummary,
   TimeSegment,
-  VadParameters,
+  VadAnalysis,
   WaveformEnvelope,
 } from "@/lib/types";
 
@@ -29,11 +30,13 @@ const DEBOUNCE_MS = 160;
 const ARROW_SEEK_SECONDS = 1;
 
 export function RecordingExplorer({
+  slug,
   samples,
   parameters,
 }: {
+  slug: string;
   samples: SampleSummary[];
-  parameters: VadParameters;
+  parameters: Parameters;
 }) {
   const tokens = useThemeTokens();
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -41,7 +44,7 @@ export function RecordingExplorer({
   const waveformCache = useRef(new Map<string, WaveformEnvelope>());
 
   const [selected, setSelected] = useState(samples[0]?.name ?? "");
-  const [analysis, setAnalysis] = useState<EnergyVadAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<VadAnalysis | null>(null);
   const [waveform, setWaveform] = useState<WaveformEnvelope | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRecomputing, setIsRecomputing] = useState(true);
@@ -57,7 +60,7 @@ export function RecordingExplorer({
     // envelope only depends on the sample, so it is fetched once and reused.
     const timer = window.setTimeout(() => {
       setIsRecomputing(true);
-      analyseSample(selected, parameters, !cache.has(selected), controller.signal)
+      analyseSample(slug, selected, parameters, !cache.has(selected), controller.signal)
         .then((result) => {
           if (result.waveform) cache.set(selected, result.waveform);
           setWaveform(cache.get(selected) ?? null);
@@ -76,20 +79,7 @@ export function RecordingExplorer({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [selected, parameters]);
-
-  const range: DecibelRange = useMemo(() => {
-    if (!analysis) return { top: 0, bottom: -80 };
-    let loudest = -Infinity;
-    for (const value of analysis.energy_db) if (value > loudest) loudest = value;
-    let quietestFloor = Infinity;
-    for (const value of analysis.noise_floor_curve_db) if (value < quietestFloor) quietestFloor = value;
-    const bottom = Math.min(quietestFloor, analysis.exit_threshold_db) - 12;
-    return {
-      top: Math.min(6, Math.ceil((loudest + 4) / 5) * 5),
-      bottom: Math.max(analysis.silence_floor_db - 2, Math.floor(bottom / 5) * 5),
-    };
-  }, [analysis]);
+  }, [slug, selected, parameters]);
 
   const paintWaveform = useMemo<Painter>(
     () =>
@@ -103,33 +93,6 @@ export function RecordingExplorer({
         }
       }),
     [analysis, waveform, tokens],
-  );
-
-  const paintEnergy = useMemo<Painter>(
-    () =>
-      insidePlotArea((context, width, height, gutter) => {
-        if (!analysis || !tokens) return;
-        fillSegments(context, width, height, analysis.segments, analysis.duration, tokens["--speech-wash"]);
-        drawDecibelGrid(context, width, height, range, tokens["--grid"], tokens["--muted"], 4 - gutter);
-        drawEnergyCurve(
-          context,
-          width,
-          height,
-          analysis.energy_db,
-          analysis.hop_seconds,
-          analysis.frame_seconds,
-          analysis.duration,
-          range,
-          tokens["--energy"],
-        );
-
-        const floor = analysis.noise_floor_curve_db;
-        const enterOffset = analysis.threshold_offset_db;
-        drawSampledCurve(context, width, height, floor, range, tokens["--muted"], 1, [2, 3]);
-        drawSampledCurve(context, width, height, floor, range, tokens["--speech"], 1, [4, 4], enterOffset - analysis.hysteresis_db);
-        drawSampledCurve(context, width, height, floor, range, tokens["--speech"], 1.5, [], enterOffset);
-      }),
-    [analysis, tokens, range],
   );
 
   const paintAxis = useMemo<Painter>(
@@ -300,13 +263,15 @@ export function RecordingExplorer({
             />
           </PlotRow>
 
-          <PlotRow label="Frame energy (dB)" hint="solid = enter · dashed = exit · dotted = noise floor">
-            <PaintedCanvas
-              paint={paintEnergy}
-              label="Frame energy in decibels with thresholds"
-              className="h-32 w-full sm:h-44"
-            />
-          </PlotRow>
+          {analysis?.traces.map((trace) => (
+            <PlotRow
+              key={trace.key}
+              label={trace.unit ? `${trace.label} (${trace.unit})` : trace.label}
+              hint={trace.hint}
+            >
+              <TracePlot trace={trace} analysis={analysis} tokens={tokens} />
+            </PlotRow>
+          ))}
 
           {analysis?.stages.map((stage) => (
             <PlotRow key={stage.key} label={stage.label} hint={stage.description}>
@@ -331,10 +296,9 @@ export function RecordingExplorer({
       {analysis && (
         <>
           <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-4">
-            <Statistic label="Segments" value={`${analysis.segments.length}`} />
-            <Statistic label="Speech" value={`${Math.round(analysis.speech_ratio * 100)}%`} />
-            <Statistic label="Noise floor" value={`${analysis.noise_floor_db.toFixed(1)} dB`} />
-            <Statistic label="Detector" value={`${analysis.elapsed_ms.toFixed(1)} ms`} />
+            {analysis.statistics.map((statistic) => (
+              <Statistic key={statistic.label} label={statistic.label} value={statistic.value} />
+            ))}
           </dl>
 
           <SegmentTable segments={analysis.segments} onSeek={seekTo} />
@@ -359,6 +323,60 @@ function insidePlotArea(
     drawInside(context, Math.max(1, width - gutter), height, gutter);
     context.restore();
   };
+}
+
+function TracePlot({
+  trace,
+  analysis,
+  tokens,
+}: {
+  trace: MeasurementTrace;
+  analysis: VadAnalysis;
+  tokens: ThemeTokens | null;
+}) {
+  const paint = useMemo<Painter>(
+    () =>
+      insidePlotArea((context, width, height, gutter) => {
+        if (!tokens) return;
+        const range = { top: trace.top, bottom: trace.bottom };
+
+        fillSegments(context, width, height, analysis.segments, analysis.duration, tokens["--speech-wash"]);
+        drawValueGrid(context, width, height, range, tokens["--grid"], tokens["--muted"], 4 - gutter);
+        drawMeasurementCurve(
+          context,
+          width,
+          height,
+          trace.values,
+          analysis.hop_seconds,
+          analysis.frame_seconds,
+          analysis.duration,
+          range,
+          tokens["--energy"],
+        );
+
+        for (const guide of trace.guides) {
+          drawSampledCurve(
+            context,
+            width,
+            height,
+            guide.values,
+            range,
+            guide.emphasis === "primary" ? tokens["--speech"] : tokens["--muted"],
+            guide.style === "solid" ? 1.5 : 1,
+            GUIDE_DASH[guide.style],
+          );
+        }
+      }),
+    [trace, analysis, tokens],
+  );
+
+  return (
+    <PaintedCanvas
+      paint={paint}
+      label={`${trace.label} with its thresholds`}
+      className="h-32 w-full sm:h-44"
+    />
+  );
 }
 
 function PlotRow({ label, hint, children }: { label: string; hint: string; children: ReactNode }) {
@@ -417,8 +435,8 @@ function SegmentTable({
   if (segments.length === 0) {
     return (
       <p className="rounded-lg border border-line bg-surface px-4 py-3 text-sm text-muted">
-        No speech survived the current settings. Lower the threshold offset or shorten the minimum
-        speech duration.
+        No speech survived the current settings. Loosen the threshold or shorten the minimum speech
+        duration.
       </p>
     );
   }

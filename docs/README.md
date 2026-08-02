@@ -5,13 +5,14 @@ Notes for the `backend/` implementations. One page per approach.
 ## [Rule-based](rule-based/README.md)
 
 Hand-tuned signal processing. No training data, and every decision can be traced
-back to a specific frame and threshold.
+back to a specific frame and threshold. All three share the stages after the
+threshold; only the measurement differs.
 
 | Page | Status |
 | --- | --- |
 | [energy-based.md](rule-based/energy-based.md) | Implemented |
-| `zero-crossing.md` | Planned |
-| `spectral.md` | Planned |
+| [zero-crossing.md](rule-based/zero-crossing.md) | Implemented |
+| [spectral.md](rule-based/spectral.md) | Implemented |
 
 ## [DL-based](dl-based/README.md)
 

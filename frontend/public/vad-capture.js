@@ -1,8 +1,9 @@
 // Collects microphone audio into fixed 100 ms blocks (1600 frames at 16 kHz)
 // and hands each one to the main thread, which forwards it to the backend.
+// Shared by every detector — capture is the same job whatever measures it.
 const CHUNK_SAMPLES = 1600;
 
-class EnergyVadCaptureProcessor extends AudioWorkletProcessor {
+class VadCaptureProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.buffer = new Float32Array(CHUNK_SAMPLES);
@@ -28,4 +29,4 @@ class EnergyVadCaptureProcessor extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor("energy-vad-capture", EnergyVadCaptureProcessor);
+registerProcessor("vad-capture", VadCaptureProcessor);

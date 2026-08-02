@@ -12,10 +12,10 @@ from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
 from starlette.types import Scope
 
-from app.api import energy, samples
+from app.api import energy, samples, spectral, zerocrossing
 from app.vad.audio import warm_decoder
 
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 
@@ -35,6 +35,8 @@ def health() -> dict[str, str]:
 
 app.include_router(samples.router)
 app.include_router(energy.router)
+app.include_router(zerocrossing.router)
+app.include_router(spectral.router)
 
 
 class ExportedFrontend(StaticFiles):
