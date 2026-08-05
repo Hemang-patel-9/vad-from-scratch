@@ -44,8 +44,8 @@ const APPROACHES = [
   {
     name: "Neural",
     family: "DL-based",
-    summary: "A small trained classifier over frame features.",
-    href: null,
+    summary: "A causal convolutional network with a GRU, trained on synthesised scenes.",
+    href: "/dl-based",
     docs: "docs/dl-based/README.md",
   },
 ];

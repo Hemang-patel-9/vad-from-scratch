@@ -1,0 +1,6 @@
+# Trained artifacts are build output, not source. vad.onnx alone is several MB
+# of binary, and it changes completely on every retrain, which is exactly the
+# kind of thing that makes a repository's history useless.
+*
+!.gitignore
+!README.md

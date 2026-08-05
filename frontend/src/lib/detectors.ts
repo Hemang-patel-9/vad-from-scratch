@@ -436,7 +436,83 @@ export const SPECTRAL: Detector = {
   ],
 };
 
-export const DETECTORS = [ENERGY, ZERO_CROSSING, SPECTRAL];
+export const NEURAL: Detector = {
+  slug: "neural",
+  href: "/dl-based",
+  eyebrow: "DL-based · 04",
+  title: "Neural VAD",
+  blurb:
+    "Stop choosing the measurement. A small causal network reads 64 log-mel bands per frame and emits a probability directly, and the same hysteresis, hangover and duration filters as the other three turn it into segments. Note what is missing from the panel: there is no noise percentile, no reference window, no margin. Nothing here adapts to the recording, because the network already learned what a room sounds like.",
+  live: {
+    title: "Live speech probability",
+    legend: "solid = enter threshold · dashed = exit threshold",
+    range: { top: 1, bottom: 0 },
+    decimals: 3,
+  },
+  groups: [
+    // Frame and hop are absent on purpose: the model was trained on a 30 ms
+    // window at a 10 ms hop and the backend refuses anything else, so offering
+    // them as sliders would only offer a way to get a 400 back.
+    {
+      title: "Measure",
+      controls: [
+        {
+          kind: "range",
+          key: "smoothing_ms",
+          label: "Median smoothing",
+          hint: "Usually unnecessary here — the network's output barely flickers.",
+          min: 0,
+          max: 200,
+          step: 10,
+          unit: "ms",
+        },
+      ],
+    },
+    {
+      title: "Threshold",
+      controls: [
+        {
+          kind: "range",
+          key: "enter_probability",
+          label: "Enter at",
+          hint: "Probability a frame must reach before speech starts.",
+          min: 0.05,
+          max: 0.95,
+          step: 0.05,
+          unit: "",
+        },
+        {
+          kind: "range",
+          key: "exit_probability",
+          label: "Exit at",
+          hint: "Probability it must fall below before speech ends.",
+          min: 0.05,
+          max: 0.95,
+          step: 0.05,
+          unit: "",
+        },
+      ],
+    },
+    DECISION,
+  ],
+  notes: [
+    {
+      term: "Probability",
+      body: () =>
+        "Each frame's 64 log-mel bands go through five stacks of time-channel separable convolutions and then a GRU. Every convolution pads on the left only, so a frame is judged on what came before it and never on what follows — which is what lets the microphone tab return exactly the numbers the file tab does, rather than an approximation of them. About 1.7 s of history reaches each decision.",
+    },
+    {
+      term: "Threshold",
+      body: (p) =>
+        `Unlike the other three, this line is absolute: ${p.enter_probability} means the network is ${Math.round(
+          Number(p.enter_probability) * 100,
+        )}% sure, not a fraction of the way from some reference to some peak. It was chosen on held-out audio and deliberately set a little low, because a clipped word costs more than a little extra audio does. Speech ends only once confidence drops under ${p.exit_probability}.`,
+    },
+    ...DECISION_NOTES,
+  ],
+};
+
+export const DETECTORS = [ENERGY, ZERO_CROSSING, SPECTRAL, NEURAL];
 
 /** Mirrors the pydantic defaults; the panel reads them for its reset button. */
 export const DEFAULTS: Record<string, Parameters> = {
@@ -482,6 +558,20 @@ export const DEFAULTS: Record<string, Parameters> = {
     pre_speech_ms: 30,
     hangover_ms: 60,
     min_speech_ms: 120,
+    min_silence_ms: 100,
+  },
+  // frame_ms and hop_ms are sent but not adjustable — the model's grid. The
+  // decision stages are shorter than the rule-based defaults because the GRU
+  // has already absorbed most of the flicker they exist to remove.
+  neural: {
+    frame_ms: 30,
+    hop_ms: 10,
+    smoothing_ms: 0,
+    enter_probability: 0.6,
+    exit_probability: 0.4,
+    pre_speech_ms: 30,
+    hangover_ms: 40,
+    min_speech_ms: 80,
     min_silence_ms: 100,
   },
 };

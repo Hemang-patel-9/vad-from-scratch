@@ -13,6 +13,7 @@ from typing import ClassVar
 from pydantic import BaseModel, Field
 
 from app.vad.energy import EnergyVadSettings
+from app.vad.neural import MODEL_FRAME_MS, MODEL_HOP_MS, NeuralVadSettings
 from app.vad.pipeline import DecisionSettings
 from app.vad.spectral import SpectralVadSettings
 from app.vad.zerocrossing import ZeroCrossingVadSettings
@@ -82,6 +83,29 @@ class SpectralVadParameters(DetectorParameters):
     hysteresis: float = Field(default=0.1, ge=0.0, le=0.5)
 
 
+class NeuralVadParameters(DetectorParameters):
+    """The framing controls are inherited but not really tunable.
+
+    `frame_ms` and `hop_ms` are the grid the model was trained on, so they are
+    pinned to it rather than offered as choices — the detector answers 400 for
+    anything else instead of resampling the model's opinion onto a time axis it
+    never saw. The `/dl-based` page leaves both sliders out for that reason.
+    """
+
+    settings_type: ClassVar[type[DecisionSettings]] = NeuralVadSettings
+
+    frame_ms: float = Field(default=MODEL_FRAME_MS, ge=MODEL_FRAME_MS, le=MODEL_FRAME_MS)
+    hop_ms: float = Field(default=MODEL_HOP_MS, ge=MODEL_HOP_MS, le=MODEL_HOP_MS)
+    # The GRU has already smoothed its own output; a median filter on top of it
+    # mostly rounds off onsets the model was deliberate about.
+    smoothing_ms: float = Field(default=0.0, ge=0.0, le=200.0)
+    hangover_ms: float = Field(default=40.0, ge=0.0, le=1000.0)
+    min_speech_ms: float = Field(default=80.0, ge=0.0, le=2000.0)
+
+    enter_probability: float = Field(default=0.6, ge=0.05, le=0.95)
+    exit_probability: float = Field(default=0.4, ge=0.05, le=0.95)
+
+
 class AnalysisRequest(DetectorParameters):
     """A detector's parameters, plus which sample to run them over."""
 
@@ -101,6 +125,10 @@ class ZeroCrossingVadRequest(ZeroCrossingVadParameters, AnalysisRequest):
 
 
 class SpectralVadRequest(SpectralVadParameters, AnalysisRequest):
+    pass
+
+
+class NeuralVadRequest(NeuralVadParameters, AnalysisRequest):
     pass
 
 
