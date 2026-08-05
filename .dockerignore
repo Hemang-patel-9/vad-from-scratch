@@ -12,5 +12,12 @@ frontend/README.md
 
 **/__pycache__
 **/*.pyc
-.venv
-venv
+**/.venv
+**/venv
+
+# Only the three files the backend loads belong in the image. The PyTorch
+# checkpoint and the TorchScript copy are for retraining and re-exporting, and
+# together they are larger than everything else in the build put together.
+backend/models/*.pt
+backend/models/*.ts
+backend/models/*.bak

@@ -11,6 +11,9 @@ export default function GlobalError({
     <html lang="en">
       <body
         style={{
+          // No stylesheet here on purpose, so this still renders if the CSS is
+          // what broke. That means following the OS rather than our own tokens.
+          colorScheme: "light dark",
           fontFamily: "ui-monospace, monospace",
           padding: "3rem 1.5rem",
           maxWidth: "44rem",

@@ -15,7 +15,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 COPY backend/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Generous timeout and retries because this layer pulls llvmlite, scipy and
+# onnxruntime — tens of megabytes each. pip gives up after 15 s of silence by
+# default, which a slow link hits often enough to fail the build on nothing.
+RUN pip install --no-cache-dir --timeout 120 --retries 10 -r requirements.txt
 
 COPY backend/ ./
 COPY samples/ ./samples/

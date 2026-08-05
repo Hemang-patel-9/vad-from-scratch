@@ -464,7 +464,11 @@ class StreamingDetector:
 
     @property
     def _warmup_frames(self) -> int:
-        return max(1, round(self._warmup_ms / self._settings.hop_ms))
+        # Floored at 0, not 1: a detector that asks for no warm-up gets none.
+        # The neural one does, because its seeded history makes the very first
+        # frame exact, and rounding that up to one frame would mute an onset
+        # that lands on it.
+        return max(0, round(self._warmup_ms / self._settings.hop_ms))
 
     def reconfigure(self, settings: DecisionSettings) -> None:
         keeps_frame_layout = (

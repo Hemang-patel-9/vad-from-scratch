@@ -30,12 +30,16 @@ export function useThemeTokens(): ThemeTokens | null {
       setTokens(next);
     };
 
-    // Canvas cannot read CSS variables, so the palette is sampled from the DOM
-    // once mounted and re-sampled whenever the colour scheme flips.
+    // A canvas cannot read CSS variables, so the palette is sampled out of the
+    // DOM. The toggle works by setting data-theme on <html>, so watching that
+    // attribute is what keeps the plots from staying on the old palette.
     read();
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    media.addEventListener("change", read);
-    return () => media.removeEventListener("change", read);
+    const observer = new MutationObserver(read);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    return () => observer.disconnect();
   }, []);
 
   return tokens;

@@ -1,8 +1,10 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
   --background: #ffffff;
   --surface: #fafafa;
+  --raised: #ffffff;
   --foreground: #111113;
   --muted: #71717a;
   --line: #e4e4e7;
@@ -13,12 +15,35 @@
   --wave: #a1a1aa;
   --energy: #f59e0b;
   --grid: #ededf0;
+  --ring: rgba(17, 17, 19, 0.12);
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0b0b0c;
+  --surface: #141416;
+  --raised: #1b1b1f;
+  --foreground: #f4f4f5;
+  --muted: #8b8b93;
+  --line: #26262a;
+  --ok: #4ade80;
+  --down: #f87171;
+  --speech: #60a5fa;
+  --speech-wash: rgba(96, 165, 250, 0.18);
+  --wave: #52525b;
+  --energy: #fbbf24;
+  --grid: #202024;
+  --ring: rgba(244, 244, 245, 0.14);
+}
+
+/* Without a stored choice the inline script in layout.tsx follows the system,
+   but it cannot run at all if scripting is off. This keeps that case sane. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
+    color-scheme: dark;
     --background: #0b0b0c;
     --surface: #141416;
+    --raised: #1b1b1f;
     --foreground: #f4f4f5;
     --muted: #8b8b93;
     --line: #26262a;
@@ -29,12 +54,14 @@
     --wave: #52525b;
     --energy: #fbbf24;
     --grid: #202024;
+    --ring: rgba(244, 244, 245, 0.14);
   }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
+  --color-raised: var(--raised);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-line: var(--line);
@@ -51,6 +78,37 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Only the properties that actually carry the palette. Transitioning everything
+   makes the whole page lurch on a toggle, and the canvases repaint instantly
+   anyway, so a long fade here would just look out of step with them. */
+body,
+header,
+section,
+aside,
+button,
+input,
+select,
+table {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+::selection {
+  background: var(--speech-wash);
+}
+
+:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+
+input[type="range"] {
+  accent-color: var(--speech);
 }
 
 @media (prefers-reduced-motion: reduce) {

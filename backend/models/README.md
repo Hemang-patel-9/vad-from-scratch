@@ -14,6 +14,21 @@ here:
 | `vad_frontend.npz` | The analysis window, the mel filterbank, and `mel_mean`. |
 | `vad_meta.json` | Frame grid, thresholds, and the validation metrics. |
 
+`vad.onnx` has to have exactly this signature, and the notebook asserts it before
+writing anything:
+
+```
+in   mel   [batch, n_mels, time]      out  prob   [batch, time]
+in   h_in  [1, batch, gru_hidden]     out  h_out  [1, batch, gru_hidden]
+```
+
+The time axis being *dynamic* is the part that is easy to lose. `torch.onnx.export`
+switched to the torch.export-based exporter in PyTorch 2.9, and that exporter
+ignores `dynamic_axes`: the graph it writes accepts only the exact length the
+dummy input had, and renames the outputs to graph-internal numbers. Nothing warns
+at export time. The backend feeds whole recordings and stream blocks of whatever
+size arrived, so such a graph cannot serve a single request.
+
 `vad_frontend.npz` is not a convenience. The notebook builds features with
 torchaudio and the backend rebuilds them with numpy, and a mel filterbank
 reconstructed from parameters is the classic way for those two to disagree —

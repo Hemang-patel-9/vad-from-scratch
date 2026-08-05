@@ -20,7 +20,14 @@ export async function analyseSample(
     signal,
   });
   if (!response.ok) {
-    throw new Error(`Analysis failed (HTTP ${response.status})`);
+    // The backend explains itself in `detail`, and on the neural detector that
+    // explanation is the whole message: a 503 there means nobody has trained a
+    // model yet, which is fixable, where a bare status code reads like a bug.
+    const detail = await response
+      .json()
+      .then((body: { detail?: unknown }) => (typeof body.detail === "string" ? body.detail : null))
+      .catch(() => null);
+    throw new Error(detail ?? `Analysis failed (HTTP ${response.status})`);
   }
   return response.json();
 }

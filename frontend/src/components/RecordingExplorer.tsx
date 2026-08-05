@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { CircleAlert, Loader2, Pause, Play } from "lucide-react";
 
 import { PaintedCanvas, renderOnto, useThemeTokens, type ThemeTokens, type Painter } from "@/components/canvas";
@@ -56,8 +57,7 @@ export function RecordingExplorer({
     const controller = new AbortController();
     const cache = waveformCache.current;
 
-    // Debounced so dragging a slider issues one request, not one per pixel. The
-    // envelope only depends on the sample, so it is fetched once and reused.
+    // Debounced so dragging a slider issues one request, not one per pixel.
     const timer = window.setTimeout(() => {
       setIsRecomputing(true);
       analyseSample(slug, selected, parameters, !cache.has(selected), controller.signal)
@@ -204,15 +204,16 @@ export function RecordingExplorer({
           ))}
         </select>
 
-        <button
+        <motion.button
           type="button"
           onClick={togglePlayback}
           disabled={!analysis}
-          className="flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 font-mono text-xs text-muted transition-colors hover:bg-surface hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground disabled:opacity-40"
+          whileTap={{ scale: 0.96 }}
+          className="flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 font-mono text-xs text-muted transition-colors hover:bg-surface hover:text-foreground disabled:opacity-40"
         >
           {isPlaying ? <Pause className="size-3.5" aria-hidden /> : <Play className="size-3.5" aria-hidden />}
           {isPlaying ? "Pause" : "Play"}
-        </button>
+        </motion.button>
 
         {activeSample && (
           <span className="hidden font-mono text-xs text-muted sm:inline">
@@ -221,12 +222,19 @@ export function RecordingExplorer({
           </span>
         )}
 
-        {isRecomputing && (
-          <span className="flex items-center gap-1.5 font-mono text-xs text-muted">
-            <Loader2 className="size-3.5 animate-spin" aria-hidden />
-            Recomputing
-          </span>
-        )}
+        <AnimatePresence>
+          {isRecomputing && (
+            <motion.span
+              initial={{ opacity: 0, x: -4 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center gap-1.5 font-mono text-xs text-muted"
+            >
+              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              Recomputing
+            </motion.span>
+          )}
+        </AnimatePresence>
       </div>
 
       <audio
@@ -239,12 +247,19 @@ export function RecordingExplorer({
         className="hidden"
       />
 
-      {error && (
-        <p className="flex items-center gap-2 rounded-md border border-line bg-surface px-3 py-2 font-mono text-xs text-down">
-          <CircleAlert className="size-3.5" aria-hidden />
-          {error}
-        </p>
-      )}
+      <AnimatePresence>
+        {error && (
+          <motion.p
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            className="flex items-center gap-2 rounded-md border border-line bg-surface px-3 py-2 font-mono text-xs text-down"
+          >
+            <CircleAlert className="size-3.5 shrink-0" aria-hidden />
+            {error}
+          </motion.p>
+        )}
+      </AnimatePresence>
 
       <div className="rounded-lg border border-line bg-surface p-2 sm:p-3">
         <div
@@ -420,7 +435,15 @@ function Statistic({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-surface px-3 py-2.5 sm:px-4 sm:py-3">
       <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{label}</dt>
-      <dd className="mt-1 font-mono text-sm tabular-nums">{value}</dd>
+      <motion.dd
+        key={value}
+        initial={{ opacity: 0.35 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+        className="mt-1 font-mono text-sm tabular-nums"
+      >
+        {value}
+      </motion.dd>
     </div>
   );
 }

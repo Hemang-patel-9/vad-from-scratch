@@ -127,7 +127,7 @@ measurement got made.
 
 | Parameter | Default | Effect |
 | --- | --- | --- |
-| `frame_ms` | 30 | **Pinned.** The model's grid; anything else is refused with a 400. |
+| `frame_ms` | 30 | **Pinned.** The model's grid; the schema refuses anything else with a 422. |
 | `hop_ms` | 10 | **Pinned.** Same. |
 | `smoothing_ms` | 0 | Median window. 0, unlike the rule-based 30 — see below. |
 | `enter_probability` | 0.6 | Confidence a frame must reach for speech to start. |
@@ -162,8 +162,9 @@ frames, and it cannot do better without seeing the future.
 
 `StreamingNeuralVad` has no such compromise. The model is causal by
 construction, so the only state is mechanical, and fed that state a stream
-returns **the same numbers a file pass returns** — verified to 1e-7 across block
-sizes from 37 samples to whole files.
+returns **the same numbers a file pass returns** — verified to 3e-6 across the
+bundled samples at block sizes from 37 samples to whole files, which is float32
+accumulation order and nothing else.
 
 Two kinds of state are carried, and keeping them separate is the subtlety:
 

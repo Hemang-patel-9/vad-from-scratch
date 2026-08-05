@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { RotateCcw } from "lucide-react";
 
 import type { Control, ControlGroup } from "@/lib/detectors";
@@ -22,23 +23,27 @@ export function ParameterPanel({
   const isDefault = controls.every((control) => parameters[control.key] === defaults[control.key]);
 
   return (
-    <section aria-labelledby="parameters-heading" className="rounded-lg border border-line bg-surface">
+    <section
+      aria-labelledby="parameters-heading"
+      className="overflow-hidden rounded-lg border border-line bg-surface"
+    >
       <header className="flex items-center justify-between border-b border-line px-4 py-3">
         <h2 id="parameters-heading" className="text-sm font-medium">
           Parameters
         </h2>
-        <button
+        <motion.button
           type="button"
           onClick={() => onChange(defaults)}
           disabled={isDefault}
-          className="flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 font-mono text-xs text-muted transition-colors hover:bg-background hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground disabled:opacity-40"
+          whileTap={{ scale: 0.96 }}
+          className="flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 font-mono text-xs text-muted transition-colors hover:bg-background hover:text-foreground disabled:opacity-40"
         >
           <RotateCcw className="size-3.5" aria-hidden />
           Reset
-        </button>
+        </motion.button>
       </header>
 
-      <div className="grid gap-x-8 gap-y-6 p-4 lg:grid-cols-3">
+      <div className="grid gap-x-8 gap-y-6 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-3">
         {groups.map((group) => (
           <div key={group.title}>
             <h3 className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
@@ -93,16 +98,25 @@ function ControlField({
     );
   }
 
+  const value = Number(parameters[control.key]);
+
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
         <label htmlFor={control.key} className="text-sm">
           {control.label}
         </label>
-        <output htmlFor={control.key} className="font-mono text-xs tabular-nums text-muted">
-          {Number(parameters[control.key])}
+        <motion.output
+          key={value}
+          htmlFor={control.key}
+          initial={{ opacity: 0.4 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.15 }}
+          className="font-mono text-xs tabular-nums text-muted"
+        >
+          {value}
           {control.unit}
-        </output>
+        </motion.output>
       </div>
       <input
         id={control.key}
@@ -110,10 +124,10 @@ function ControlField({
         min={control.min}
         max={control.max}
         step={control.step}
-        value={Number(parameters[control.key])}
+        value={value}
         disabled={disabled}
         onChange={(event) => onChange({ ...parameters, [control.key]: Number(event.target.value) })}
-        className="mt-2 w-full accent-speech disabled:opacity-40"
+        className="mt-2 w-full disabled:opacity-40"
       />
       <p className="mt-1 text-xs leading-snug text-muted">{control.hint}</p>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { CircleAlert, Mic, Square } from "lucide-react";
 
 import { AnimatedCanvas, useThemeTokens, type Painter } from "@/components/canvas";
@@ -109,8 +110,8 @@ export function LiveMicrophonePanel({
         if (socket.readyState === WebSocket.OPEN) socket.send(event.data);
       };
 
-      // A worklet with no path to the destination is not guaranteed to be pulled,
-      // so route it through a silent gain node rather than echoing the microphone.
+      // A worklet with no path to the destination is not guaranteed to be
+      // pulled, hence the muted gain node rather than echoing the mic back.
       const silence = context.createGain();
       silence.gain.value = 0;
       source.connect(capture).connect(silence).connect(context.destination);
@@ -179,9 +180,8 @@ export function LiveMicrophonePanel({
         [],
       );
 
-      // Each frame carries the thresholds that were in force when it was
-      // decided, so the guides move with the detector rather than being redrawn
-      // flat at whatever the latest value happens to be.
+      // Every frame carries the thresholds in force when it was decided, so the
+      // guides move with the detector instead of being drawn flat at the latest.
       for (const guide of frames.at(-1)?.guides ?? []) {
         drawTrace(
           context,
@@ -206,31 +206,39 @@ export function LiveMicrophonePanel({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         {status === "running" ? (
-          <button
+          <motion.button
             type="button"
             onClick={stop}
-            className="flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 font-mono text-xs transition-colors hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+            whileTap={{ scale: 0.96 }}
+            className="flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 font-mono text-xs transition-colors hover:bg-surface"
           >
             <Square className="size-3.5" aria-hidden />
             Stop
-          </button>
+          </motion.button>
         ) : (
-          <button
+          <motion.button
             type="button"
             onClick={() => void start()}
             disabled={status === "starting"}
-            className="flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 font-mono text-xs transition-colors hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground disabled:opacity-40"
+            whileTap={{ scale: 0.96 }}
+            className="flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 font-mono text-xs transition-colors hover:bg-surface disabled:opacity-40"
           >
             <Mic className="size-3.5" aria-hidden />
             {status === "starting" ? "Starting" : "Start microphone"}
-          </button>
+          </motion.button>
         )}
 
         {status === "running" && (
           <span
             className={`flex items-center gap-1.5 font-mono text-xs ${isSpeaking ? "text-ok" : "text-muted"}`}
           >
-            <span className={`size-2 rounded-full ${isSpeaking ? "bg-ok" : "bg-muted"}`} />
+            <motion.span
+              animate={isSpeaking ? { scale: [1, 1.45, 1] } : { scale: 1 }}
+              transition={
+                isSpeaking ? { duration: 1.1, repeat: Infinity, ease: "easeInOut" } : { duration: 0.2 }
+              }
+              className={`size-2 rounded-full ${isSpeaking ? "bg-ok" : "bg-muted"}`}
+            />
             {isSpeaking ? "Speech" : "Silence"}
           </span>
         )}
@@ -240,12 +248,19 @@ export function LiveMicrophonePanel({
         </span>
       </div>
 
-      {error && (
-        <p className="flex items-center gap-2 rounded-md border border-line bg-surface px-3 py-2 font-mono text-xs text-down">
-          <CircleAlert className="size-3.5" aria-hidden />
-          {error}
-        </p>
-      )}
+      <AnimatePresence>
+        {error && (
+          <motion.p
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            className="flex items-center gap-2 rounded-md border border-line bg-surface px-3 py-2 font-mono text-xs text-down"
+          >
+            <CircleAlert className="size-3.5 shrink-0" aria-hidden />
+            {error}
+          </motion.p>
+        )}
+      </AnimatePresence>
 
       <div className="rounded-lg border border-line bg-surface p-3">
         <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3">
