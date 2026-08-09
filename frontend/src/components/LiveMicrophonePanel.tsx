@@ -244,7 +244,7 @@ export function LiveMicrophonePanel({
         )}
 
         <span className="text-xs text-muted">
-          Audio is analysed by the same detector, one 100 ms block at a time.
+          Try to clap, snap your fingers, or speak to see the energy and speech detection in action.
         </span>
       </div>
 
