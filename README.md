@@ -128,7 +128,7 @@ several seconds; the backend spends it during startup so requests do not. After
 that, decoded samples are cached in memory and detection takes 5–16 ms for the
 energy and zero-crossing detectors and up to 134 ms for the spectral one, which
 is what makes re-analysing on every slider move practical. Slider round-trips
-also skip the waveform envelope, since it depends only on the sample — that
+also skip the waveform envelope, since it depends only on the sample - that
 alone is 60–80% of the response body.
 
 Samples are found via `VAD_SAMPLES_DIR`, then `backend/samples/`, then
